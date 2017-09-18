@@ -6,8 +6,12 @@ let cookieParser = require('cookie-parser');
 let bodyParser = require('body-parser');
 let mongoose = require('mongoose');
 let config = require('./.config');
+let User = require('./models/transactModel');
+let cors = require('cors');
 
 let app = express();
+
+app.use(cors());
 
 mongoose.Promise = global.Promise; // so that we can use Promises with Mongoose
 
