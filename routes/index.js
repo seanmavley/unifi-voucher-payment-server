@@ -20,7 +20,7 @@ router.get('/callback', function(req, res) {
 })
 
 router.post('/callback', function(req, res) {
-  console.log(req.body);
+  // console.log(req.body);
   let new_transact = new Transact({
     trans_id: req.body.Data.TransactionId,
     resp: req.body
@@ -70,17 +70,18 @@ router.post('/callback/get', function(req, res) {
 
       // no transaction found
       if(!transaction) {
-        res.json({
+        res.status(404).json({
           'state': false,
           'msg': 'No transaction found'
         })
-      } else {
+      } else { // transaction found
         console.log(transaction);
 
         if (transaction.resp.ResponseCode === '2001') { // transaction was a failure
-          res.json({
+          res.status(400).json({
             'state': false,
-            'msg': 'Transaction was a failure'
+            'msg': 'Transaction was a failure',
+            'error': transaction
           })
         } else if (transaction.resp.ResponseCode === '0000') { // transaction succeeded
 
@@ -92,12 +93,12 @@ router.post('/callback/get', function(req, res) {
           })
 
         } else { // anything else means not good to proceed.
-
           res.json({
             'state': false,
             // Try to provide as many reasonable responses "ass" possible,
             // using the response codes from Hubtel
-            'msg': 'Transaction could not complete. Please try again.'
+            'msg': 'Transaction could not complete. Please try again.',
+            'error': transaction
           })
 
         }
@@ -170,21 +171,14 @@ router.post('/buy', function(req, res) {
           'msg': 'Here you go, this is your voucher',
           'data': data
         })
-      } else if(data.ResponseCode === '0001') {
+      } else {
         // means 'pending'. Fa ho adwene. 
         // Initiate interval observable to poll callback endpoint
         // Here's the most annoying part.
         res.json({
-          'state': true,
-          'stage': true,
+          'state': false,
           'msg': 'Confirm if purchase went through',
           'data': data
-        })
-      } else {
-        res.json({
-          'state': false,
-          'msg': 'Something did not go as planned. See error message',
-          'error': data
         })
       }
 
