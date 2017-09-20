@@ -1,0 +1,13 @@
+{
+    "ResponseCode": "2001",
+    "Data":
+    {
+        "AmountAfterCharges": 0.0,
+        "TransactionId": "70fff62b7d98477bbf74d3e2b24bf405",
+        "ClientReference": "",
+        "Description": "Transaction failed due to an error with the upstream provider. Please check and try again.",
+        "ExternalTransactionId": "15E91E955A918273",
+        "Amount": 1.0,
+        "Charges": 0.0
+    }
+}

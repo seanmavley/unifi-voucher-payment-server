@@ -27,7 +27,6 @@ router.post('/callback', function(req, res) {
   });
 
   new_transact.save(function(err, transaction) {
-    // just log to console
     if(err) {
       console.log(err);
       res.json({
@@ -43,6 +42,13 @@ router.post('/callback', function(req, res) {
       'msg': transaction
     })
   });
+});
+
+router.get('/callback/get', function(req, res) {
+  res.json({
+    'state': true,
+    'msg': 'Endpoint to poll for callbackUrl post status'
+  })
 });
 
 // This queries the Transact to see if 
@@ -162,7 +168,7 @@ router.post('/buy', function(req, res) {
 
   rp(options)
     .then(function(data) {
-      console.log(data);
+      // console.log(data);
 
       if (data.ResponseCode === '0000') {
         // this eventually should generate code and send.
