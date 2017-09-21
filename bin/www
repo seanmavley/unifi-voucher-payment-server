@@ -89,3 +89,5 @@ function onListening() {
   debug('Listening on ' + bind);
   console.log('Listening on: http://localhost:' + addr.port);
 }
+
+module.exports = server;
