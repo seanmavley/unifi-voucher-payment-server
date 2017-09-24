@@ -4,6 +4,10 @@ let rp = require('request-promise');
 let config = require('../.config.js');
 let uuid = require('uuid');
 let Transact = require('mongoose').model('Transact');
+let unifi = require('node-unifiapi');
+
+const minutes_per_month = 1440 * 30;
+const use_once = 1;
 
 router.get('/', function(req, res, next) {
   res.json({
@@ -20,7 +24,6 @@ router.get('/callback', function(req, res) {
 })
 
 router.post('/callback', function(req, res) {
-  // console.log(req.body);
   let new_transact = new Transact({
     trans_id: req.body.Data.TransactionId,
     resp: req.body
@@ -34,8 +37,6 @@ router.post('/callback', function(req, res) {
         'error': err
       });
     }
-
-    // console.log(transaction);
 
     res.json({
       'state': true,
@@ -51,17 +52,16 @@ router.get('/callback/get', function(req, res) {
   })
 });
 
-// This queries the Transact to see if 
-// the callback was called.
+// for polling
 router.post('/callback/get', function(req, res) {
-  // is transact_id provided
+
   if(!req.body.trans_id) {
     res.json({
       'state': false,
       'msg': 'No transaction id provided'
     })
   } else {
-    // query
+
     Transact.findOne({
       trans_id: req.body.trans_id
     }, function(err, transaction) {
@@ -74,7 +74,6 @@ router.post('/callback/get', function(req, res) {
         })
       }
 
-      // no transaction found
       if(!transaction) {
         res.status(404).json({
           'state': false,
@@ -90,13 +89,56 @@ router.post('/callback/get', function(req, res) {
             'error': transaction
           })
         } else if (transaction.resp.ResponseCode === '0000') { // transaction succeeded
+          // Check the .config_sample.js for sample
+          let u = unifi({
+            baseUrl: config.baseUrl, // The URL of the Unifi Controller
+            username: config.username, // Your username
+            password: config.password, // Your password
+            // debug: true
+          });
 
-          // eventually this section will generate the Voucher,
-          // and send to the client to display.
-          res.json({
-            'state': true,
-            'msg': 'Here is your generated voucher'
-          })
+          let internet_megabytes;
+
+          switch(req.body.package) {
+            case '1gig':
+              internet_megabytes = 1000;
+              break;
+            case '3gig':
+              internet_megabytes = 3000;
+              break;
+            case '10gig':
+              internet_megabytes = 10000;
+              break;
+            default:
+              amount = 1000;
+              console.log('Default to 5 cedis package if user is messing up with me');
+          };
+
+          // See https://github.com/delian/node-unifiapi#unifiapicreate_vouchercount-minutes-quota-note-up-down-mbytes-site--promise
+          u.create_voucher(1, minutes_per_month, use_once, 'Generated via Mobile Money', undefined, undefined, internet_megabytes)
+            .then((created) => {
+
+              console.log('Success', created)
+              // query the voucher then.
+              console.log(created.data[0].create_time);
+              u.stat_voucher(created.data[0].create_time)
+                .then((response) => {
+
+                  res.json({
+                    'state': true,
+                    'msg': 'Here you go, this is your voucher',
+                    'data': response.data[0]
+                  })
+                
+                })
+                .catch((err) => {
+                  console.log('Error', err);
+                })
+            })
+            .catch((err) => {
+              console.log('Error', err)
+            })
+
 
         } else { // anything else means not good to proceed.
           res.json({
@@ -121,15 +163,11 @@ router.get('/buy', function(req, res) {
 });
 
 router.post('/buy', function(req, res) {
-  console.log(req.body);
-
-  console.log(config.api_auth);
 
   const client_ref = uuid();
 
   let amount;
 
-  // Shall we check the packages
   // this ensure user doesn't send in any tricks.
   switch(req.body.package) {
     case '1gig':
@@ -168,19 +206,60 @@ router.post('/buy', function(req, res) {
 
   rp(options)
     .then(function(data) {
-      // console.log(data);
 
       if (data.ResponseCode === '0000') {
-        // this eventually should generate code and send.
-        res.json({
-          'state': true,
-          'msg': 'Here you go, this is your voucher',
-          'data': data
-        })
+          // Check the .config_sample.js
+        let u = unifi({
+          baseUrl: config.baseUrl, // The URL of the Unifi Controller
+          username: config.username, // Your username
+          password: config.password, // Your password
+          // debug: true
+        });
+
+        let internet_megabytes;
+
+        switch(req.body.package) {
+          case '1gig':
+            internet_megabytes = 1000;
+            break;
+          case '3gig':
+            internet_megabytes = 3000;
+            break;
+          case '10gig':
+            internet_megabytes = 10000;
+            break;
+          default:
+            amount = 1000;
+            console.log('Default to 5 cedis package if user is messing up with me');
+        };
+        
+        // See https://github.com/delian/node-unifiapi#unifiapicreate_vouchercount-minutes-quota-note-up-down-mbytes-site--promise
+        u.create_voucher(1, minutes_per_month, use_once, 'Generated via Mobile Money', undefined, undefined, internet_megabytes)
+          .then((created) => {
+
+            console.log('Success', created)
+            // query the voucher then.
+            console.log(created.data[0].create_time);
+            u.stat_voucher(created.data[0].create_time)
+              .then((response) => {
+
+                res.json({
+                  'state': true,
+                  'msg': 'Here you go, this is your voucher',
+                  'data': response.data[0]
+                })
+              
+              })
+              .catch((err) => {
+                console.log('Error', err);
+              })
+          })
+          .catch((err) => {
+            console.log('Error', err)
+          })
+
       } else {
         // means 'pending'. Fa ho adwene. 
-        // Initiate interval observable to poll callback endpoint
-        // Here's the most annoying part.
         res.json({
           'state': false,
           'msg': 'Confirm if purchase went through',
@@ -196,7 +275,41 @@ router.post('/buy', function(req, res) {
         'msg': err
       })
     })
-
 })
+
+// router.get('/test/purchase', function(req, res) {
+//   let u = unifi({
+//     baseUrl: config.baseUrl, // The URL of the Unifi Controller
+//     username: config.username, // Your username
+//     password: config.password, // Your password
+//     // debug: true
+//   });
+
+//   let internet_megabytes = 1000;
+
+//   u.create_voucher(1, minutes_per_month, use_once, 'Generated via Mobile Money', undefined, undefined, internet_megabytes)
+//     .then((created) => {
+
+//       console.log('Success', created)
+//       // query the voucher then.
+//       console.log(created.data[0].create_time);
+//       u.stat_voucher(created.data[0].create_time)
+//         .then((response) => {
+
+//           res.json({
+//             'state': true,
+//             'msg': 'Here you go, this is your voucher',
+//             'data': response.data[0]
+//           })
+        
+//         })
+//         .catch((err) => {
+//           console.log('Error', err);
+//         })
+//     })
+//     .catch((err) => {
+//       console.log('Error', err)
+//     })
+// })
 
 module.exports = router;
