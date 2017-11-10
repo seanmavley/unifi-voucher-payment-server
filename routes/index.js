@@ -163,12 +163,10 @@ router.get('/buy', function(req, res) {
 });
 
 router.post('/buy', function(req, res) {
-
-  const client_ref = uuid();
-
   let amount;
+  let transaction_direction;
 
-  // this ensure user doesn't send in any tricks.
+  // this ensures user doesn't send in any tricks.
   switch(req.body.package) {
     case '1gig':
       amount = 5;
@@ -183,83 +181,95 @@ router.post('/buy', function(req, res) {
       amount = 5;
       console.log('Default to 5 cedis if user is messing up with me');
   };
+  
+  // set transaction direction
+  switch(req.body.network) {
+    case 'mtn':
+      transaction_direction = 'rmta'; // Receive Mtn To Airtel
+      break;
+    case 'tigo':
+      transaction_direction = 'rtta';
+      break;
+    case 'airtel':
+      transaction_direction = 'rata';
+      break;
+  }
+
+  console.log(transaction_direction, amount, req.body.from_number, req.body.network);
 
   let options = {
     method: 'POST',
-    uri: 'https://api.hubtel.com/v1/merchantaccount/merchants/' + config.account_id + '/receive/mobilemoney',
-    headers: {
-      'Authorization': 'Basic ' + config.api_auth
-    },
+    uri: ' https://client.teamcyst.com/api_call.php',
     body: {
-      "CustomerName": req.body.name,
-      "CustomerMsisdn": req.body.number,
-      "CustomerEmail": "",
-      "Channel": req.body.network,
-      "Amount": amount,
-      "PrimaryCallbackUrl": config.callbackUrl,
-      "SecondaryCallbackUrl": "",
-      "Description": "Payment of AlwaysOn WiFi Package " + req.body.package,
-      "ClientReference": client_ref
+      "price": amount,
+      "network": req.body.network,
+      "recipient_number":"0269201707",
+      "sender": req.body.from_number,
+      "option": transaction_direction,
+      "apikey": config.api_key
     },
     json: true
   }
 
   rp(options)
     .then(function(data) {
-
-      if (data.ResponseCode === '0000') {
+      console.log(data);
+      if (data.code === 1 && data.status === 'success') {
+        res.json({
+          'state': true,
+          'msg': 'Transaction went through'
+        })
           // Check the .config_sample.js
-        let u = unifi({
-          baseUrl: config.baseUrl, // The URL of the Unifi Controller
-          username: config.username, // Your username
-          password: config.password, // Your password
-          // debug: true
-        });
+        // let u = unifi({
+        //   baseUrl: config.baseUrl, // The URL of the Unifi Controller
+        //   username: config.username, // Your username
+        //   password: config.password, // Your password
+        //   // debug: true
+        // });
 
-        let internet_megabytes;
+        // let internet_megabytes;
 
-        switch(req.body.package) {
-          case '1gig':
-            internet_megabytes = 1000;
-            break;
-          case '3gig':
-            internet_megabytes = 3000;
-            break;
-          case '10gig':
-            internet_megabytes = 10000;
-            break;
-          default:
-            amount = 1000;
-            console.log('Default to 5 cedis package if user is messing up with me');
-        };
+        // switch(req.body.package) {
+        //   case '1gig':
+        //     internet_megabytes = 1000;
+        //     break;
+        //   case '3gig':
+        //     internet_megabytes = 3000;
+        //     break;
+        //   case '10gig':
+        //     internet_megabytes = 10000;
+        //     break;
+        //   default:
+        //     amount = 1000;
+        //     console.log('Default to 5 cedis package if user is messing up with me');
+        // };
         
-        // See https://github.com/delian/node-unifiapi#unifiapicreate_vouchercount-minutes-quota-note-up-down-mbytes-site--promise
-        u.create_voucher(1, minutes_per_month, use_once, 'Generated via Mobile Money', undefined, undefined, internet_megabytes)
-          .then((created) => {
+        // // See https://github.com/delian/node-unifiapi#unifiapicreate_vouchercount-minutes-quota-note-up-down-mbytes-site--promise
+        // u.create_voucher(1, minutes_per_month, use_once, 'Generated via Mobile Money', undefined, undefined, internet_megabytes)
+        //   .then((created) => {
 
-            console.log('Success', created)
-            // query the voucher then.
-            console.log(created.data[0].create_time);
-            u.stat_voucher(created.data[0].create_time)
-              .then((response) => {
+        //     console.log('Success', created)
+        //     // query the voucher then.
+        //     console.log(created.data[0].create_time);
+        //     u.stat_voucher(created.data[0].create_time)
+        //       .then((response) => {
 
-                res.json({
-                  'state': true,
-                  'msg': 'Here you go, this is your voucher',
-                  'data': response.data[0]
-                })
+        //         res.json({
+        //           'state': true,
+        //           'msg': 'Here you go, this is your voucher',
+        //           'data': response.data[0]
+        //         })
               
-              })
-              .catch((err) => {
-                console.log('Error', err);
-              })
-          })
-          .catch((err) => {
-            console.log('Error', err)
-          })
+        //       })
+        //       .catch((err) => {
+        //         console.log('Error', err);
+        //       })
+        //   })
+        //   .catch((err) => {
+        //     console.log('Error', err)
+        //   })
 
       } else {
-        // means 'pending'. Fa ho adwene. 
         res.json({
           'state': false,
           'msg': 'Confirm if purchase went through',
