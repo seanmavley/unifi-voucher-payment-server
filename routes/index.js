@@ -29,9 +29,6 @@ router.post('/buy', function(req, res) {
 
   // this ensures user doesn't send in any tricks.
   switch(req.body.package) {
-    case '0.1gig':
-      amount = 1;
-      break;
     case '0.3gig':
       amount = 2;
       break;
@@ -45,7 +42,7 @@ router.post('/buy', function(req, res) {
       amount = 30;
       break;
     default:
-      amount = 1;
+      amount = 2;
       console.log('Default to 1 cedis if user is messing up with me');
   };
   
@@ -79,9 +76,9 @@ router.post('/buy', function(req, res) {
   }
 
   rp(options)
-    .then(function(data) {
-      console.log(data);
-      if (data && data.code === 1) {
+    .then(function(api_response_data) {
+      console.log(api_response_data);
+      if (api_response_data && api_response_data.code === 1) {
         // Check the .config_sample.js
         let u = unifi({
           baseUrl: config.baseUrl, // The URL of the Unifi Controller
@@ -93,9 +90,6 @@ router.post('/buy', function(req, res) {
         let internet_megabytes;
 
         switch(req.body.package) {
-          case '0.1gig':
-            internet_megabytes = 100;
-            break;
           case '0.3gig':
             internet_megabytes = 300;
             break;
@@ -109,8 +103,8 @@ router.post('/buy', function(req, res) {
             internet_megabytes = 10000;
             break;
           default:
-            amount = 100;
-            console.log('Default to 1 cedis package if user is messing up with me');
+            amount = 300;
+            console.log('Default to 2 cedis package if user is messing up with me');
         };
         
         // See https://github.com/delian/node-unifiapi#unifiapicreate_vouchercount-minutes-quota-note-up-down-mbytes-site--promise
@@ -135,7 +129,8 @@ router.post('/buy', function(req, res) {
                 res.json({
                   'state': true,
                   'msg': 'Here you go, this is your voucher',
-                  'data': response.data[0]
+                  'data': response.data[0],
+                  'transaction': api_response_data
                 })
               
               })
