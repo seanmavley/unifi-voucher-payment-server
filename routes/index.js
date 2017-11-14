@@ -26,6 +26,19 @@ router.get('/buy', function(req, res) {
 router.post('/buy', function(req, res) {
   let amount;
   let transaction_direction;
+  let network = req.body.network;
+  let from_number = req.body.from_number;
+
+  let network_prefix = ['024', '054', '055', '026', '056', '027', '057'];
+
+  // console.log(network_prefix.includes(from_number.slice(0, 3)));
+
+  if (!network_prefix.includes(from_number.slice(0, 3))) {
+    return res.json({
+      'state': false,
+      'msg': 'The phone number entered is NOT a valid Ghana Mobile Network phone number.'
+    })
+  }
 
   // this ensures user doesn't send in any tricks.
   switch(req.body.package) {
@@ -42,8 +55,7 @@ router.post('/buy', function(req, res) {
       amount = 30;
       break;
     default:
-      amount = 2;
-      console.log('Default to 1 cedis if user is messing up with me');
+      amount = 2; // Default to 2 cedis if user is messing up with me
   };
   
   // set transaction direction
@@ -52,23 +64,23 @@ router.post('/buy', function(req, res) {
       transaction_direction = 'rmta'; // Receive Mtn To Airtel
       break;
     case 'tigo':
-      transaction_direction = 'rtta';
+      transaction_direction = 'rtta'; // Receive Tigo to Airtel
       break;
     case 'airtel':
-      transaction_direction = 'rata';
+      transaction_direction = 'rata'; // receive Airtel to aAirtel
       break;
   }
 
-  console.log(transaction_direction, amount, req.body.from_number, req.body.network);
+  // console.log(transaction_direction, amount, req.body.from_number, req.body.network);
 
   let options = {
     method: 'POST',
     uri: ' https://client.teamcyst.com/api_call.php',
     body: {
       "price": amount,
-      "network": req.body.network,
+      "network": network,
       "recipient_number": config.receive_number,
-      "sender": req.body.from_number,
+      "sender": from_number,
       "option": transaction_direction,
       "apikey": config.api_key
     },
@@ -78,6 +90,9 @@ router.post('/buy', function(req, res) {
   rp(options)
     .then(function(api_response_data) {
       console.log(api_response_data);
+
+      options.response = api_response_data;
+
       if (api_response_data && api_response_data.code === 1) {
         // Check the .config_sample.js
         let u = unifi({
@@ -103,28 +118,26 @@ router.post('/buy', function(req, res) {
             internet_megabytes = 10000;
             break;
           default:
-            amount = 300;
-            console.log('Default to 2 cedis package if user is messing up with me');
+            amount = 300; // Default to 2 cedis package if user is messing up with me
         };
         
         // See https://github.com/delian/node-unifiapi#unifiapicreate_vouchercount-minutes-quota-note-up-down-mbytes-site--promise
         u.create_voucher(1, minutes_per_month, use_once, 'Generated via Mobile Money', undefined, undefined, internet_megabytes)
           .then((created) => {
 
-            console.log('Success', created)
+            // console.log('Success', created)
 
             // query the voucher.
-            console.log(created.data[0].create_time);
             u.stat_voucher(created.data[0].create_time)
               .then((response) => {
 
-                // TODO: save something much meaningful and useful
-                // to db.
-                let transact = new Transact(options);
-                transact.save((err, response) => {
+                options.voucher = created.data[0];
+
+                Transact.create(options, (err, response) => {
                   if(err) console.log(err);
                   console.log(response);
                 });
+                  
 
                 res.json({
                   'state': true,
@@ -150,6 +163,14 @@ router.post('/buy', function(req, res) {
             })
           })
       } else {
+
+        options.response = api_response_data;
+
+        Transact.create(options, (err, response) => {
+          if(err) console.log(err);
+          console.log(response);
+        });
+
         res.json({
           'state': false,
           'msg': 'Transaction failed. Contact support if this persist.',
