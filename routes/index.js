@@ -138,7 +138,7 @@ router.post('/buy', function(req, res) {
             };
 
               // See https://github.com/delian/node-unifiapi#unifiapicreate_vouchercount-minutes-quota-note-up-down-mbytes-site--promise
-            u.create_voucher(1, minutes_per_month, use_once, 'Generated via Mobile Money', undefined, undefined, internet_megabytes)
+            u.create_voucher(1, minutes_per_month, use_once, 'Generated via Mobile Money from ' + from_number, undefined, undefined, internet_megabytes)
               .then((created) => {
 
                   // query the voucher.

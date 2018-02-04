@@ -6,9 +6,10 @@ let cookieParser = require('cookie-parser');
 let bodyParser = require('body-parser');
 let mongoose = require('mongoose');
 let config = require('./.config');
-let User = require('./models/transactModel');
+let helmet = require('helmet');
+let Transact = require('./models/transactModel');
+let User = require('./models/userModel');
 let cors = require('cors');
-
 let app = express();
 
 app.use(cors());
@@ -23,33 +24,63 @@ if (app.get('env') === 'test') {
     mongoose.connect(config.database, { useMongoClient: true });
 }
 
+app.use(helmet())
+app.use(cors());
+app.options('*', cors())
+
 let index = require('./routes/index');
-// uncomment after placing your favicon in /public
-//app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
+let auth = require('./routes/auth');
+
 app.use(logger('dev'));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json({ limit: '2mb' })); // maximum json body allowed
+app.use(bodyParser.urlencoded({ extended: true, limit: '2mb' }));
 app.use(cookieParser());
 
-app.use('/', index);
+// AUTHORIZATION HEADERS MIDDLEWARE
+// capture and decode authorization headers if any,
+// and pass decoded to next req
+app.use(function(req, res, next) { 
+  if (req.header && req.headers.authorization && req.headers.authorization.split(' ')[0] === 'JWT') {
+    jsonwebtoken.verify(req.headers.authorization.split(' ')[1], config.secret, function(err, decode) {
+        if (err) req.user = undefined;
+        req.user = decode;
+        next();
+    })
+  } else {
+    req.user = undefined;
+    next();
+  }
+});
+
+// for pre-flight tasks
+
+// at v1. Should make upgrades easier in future
+// if new api version endpoints
+const API_V1 = '/api/v1';
+
+app.use(API_V1 + '/', index);
+app.use(API_V1 + '/auth', auth);
+// authorization required for this entire endpoint
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
-  let err = new Error('Not Found');
-  err.status = 404;
-  next(err);
+    let err = new Error('Not Found');
+    err.status = 404;
+    next(err);
 });
 
 // error handler
 app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
+    // set locals, only providing error in development
+    res.locals.message = err.message;
+    res.locals.error = req.app.get('env') === 'development' ? err : {};
 
-  // render the error page
-  res.status(err.status || 500).json({
-    'error': err.status
-  });
+    console.log(err);
+    
+    res.json({
+        'status': err.status || 500,
+        'msg': 'Not found or Server Error. See error code'
+    });
 });
 
 module.exports = app;
