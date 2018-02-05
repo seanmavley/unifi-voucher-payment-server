@@ -2,6 +2,11 @@ let mongoose = require('mongoose');
 let Schema = mongoose.Schema;
 
 let Transact = new Schema({
+    slug: {
+      type: String,
+      unique: true,
+      index: true
+    },
     response: Object,
     voucher: Object,
     // method: String,
