@@ -11,10 +11,10 @@ const use_once = 1;
 
 function makeid() {
   var text = "";
-  var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  var generate_from = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
   for (var i = 0; i < 5; i++)
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
+    text += generate_from.charAt(Math.floor(Math.random() * generate_from.length));
 
   return text;
 }
@@ -31,7 +31,7 @@ router.get('/transaction', function (req, res) {
 
   Transact.findOne({
     slug: slug
-  }, function (err, transact_res) {
+  }, function (err, obj) {
     if (err) {
       return res.json({
         'state': false,
@@ -43,7 +43,7 @@ router.get('/transaction', function (req, res) {
     res.json({
       'state': true,
       'msg': 'Transaction retrieved',
-      'transaction': transact_res
+      'transaction': obj
     });
   });
 });
@@ -71,14 +71,11 @@ router.post('/buy', function (req, res) {
 
   rp(captcha_verification_request)
     .then((response) => {
-      // captcha success
-      if (response.success) {
 
-        console.log(req.body);
+      if (response.success) {
 
         let amount;
         let transaction_direction;
-        // let network = req.body.network;
         let network;
         let from_number = req.body.from_number;
         let customer_name = req.body.name;
@@ -94,6 +91,16 @@ router.post('/buy', function (req, res) {
 
         const number_first_three_digits = from_number.substring(0, 3);
         console.log(number_first_three_digits);
+
+        /**
+         Basically mapping the first three digits of the sender phone number
+         to their network names here.
+         
+         This solves the bug where the user selects a network, say 'MTN', but
+         the phone number specified is a 026 (AirtelTigo)
+
+         Such a situation fools the API endpoint to return a success ALTHOUGH it should fail
+        */
         switch (number_first_three_digits) {
           case '024' || '054' || '055':
             network = 'mtn';
@@ -142,9 +149,14 @@ router.post('/buy', function (req, res) {
           case 'airtel':
             transaction_direction = 'rata'; // receive Airtel to aAirtel
             break;
+          default:
+            return res.json({
+              'state': false,
+              'msg': 'Something is not right. Likely a sender to receiver error. Contact support'
+            });
         }
 
-        // console.log(transaction_direction, amount, req.body.from_number, req.body.network);
+        console.log(transaction_direction);
 
         let options = {
           method: 'POST',
@@ -168,7 +180,7 @@ router.post('/buy', function (req, res) {
             const SLUG = makeid();
 
             if (api_response_data && api_response_data.code === 1) {
-              // Check the .config_sample.js
+              // Check your .config_sample.js
               let u = unifi({
                 baseUrl: config.baseUrl, // The URL of the Unifi Controller
                 username: config.username, // Your username
@@ -211,16 +223,22 @@ router.post('/buy', function (req, res) {
                       Transact.create(options, (err, transact_res) => {
                         if (err) console.log(err);
                         console.log(transact_res);
-                      });
 
-                      res.json({
-                        'state': true,
-                        'msg': 'Here you go, this is your voucher',
-                        'data': response.data[0],
-                        'transaction': api_response_data,
-                        'slug': options.slug
-                      });
+                        /**
+                         * Sending response ONLY after Transaction create complete.
+                         * Otherwise, because of Race Condition, by the time the frontend redirects to load 
+                         * this specific transaction it would not be available in the db, thus failing
+                         * although refresh in the browser would simply fix it.
+                         */
 
+                        res.json({
+                          'state': true,
+                          'msg': 'Here you go, this is your voucher',
+                          'data': response.data[0],
+                          'transaction': api_response_data,
+                          'slug': options.slug
+                        });
+                      });
                     })
                     .catch((err) => {
                       console.log('Error', err);
@@ -252,7 +270,7 @@ router.post('/buy', function (req, res) {
               res.json({
                 'state': false,
                 'msg': 'Transaction failed. User did not respond on time or declined the request. Contact support if you\'re sure this is a mistake.',
-              })
+              });
             }
 
           })
@@ -261,23 +279,22 @@ router.post('/buy', function (req, res) {
             res.status(400).json({
               'state': false,
               'msg': err
-            })
-          })
+            });
+          });
 
       } else {
         return res.json({
           'state': false,
           'msg': 'I hope you are a human. Take a look at this failure message: ' + response['error-codes']
-        })
+        });
       }
     })
     .catch((err) => {
       return res.json({
         'state': false,
         'msg': 'I hope you are a human. Take a look at this failure message: ' + err
-      })
-    })
-
-})
+      });
+    });
+});
 
 module.exports = router;
