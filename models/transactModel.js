@@ -9,8 +9,6 @@ let Transact = new Schema({
     },
     response: Object,
     voucher: Object,
-    // method: String,
-    // uri: String,
     body: Object,
     json: Boolean,
 });

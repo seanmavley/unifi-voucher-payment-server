@@ -245,8 +245,8 @@ router.post('/buy', function (req, res) {
                       res.json({
                         'state': false,
                         'msg': err
-                      })
-                    })
+                      });
+                    });
                 })
                 .catch((err) => {
                   console.log('Error', err);
