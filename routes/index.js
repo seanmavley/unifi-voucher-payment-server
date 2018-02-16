@@ -118,7 +118,7 @@ router.post('/buy', function (req, res) {
             });
         }
 
-        console.log(network);
+        // console.log(network);
 
         // this ensures user doesn't send in any tricks.
         switch (req.body.package) {
@@ -156,7 +156,7 @@ router.post('/buy', function (req, res) {
             });
         }
 
-        console.log(transaction_direction);
+        // console.log(transaction_direction);
 
         let options = {
           method: 'POST',
@@ -205,10 +205,10 @@ router.post('/buy', function (req, res) {
                   break;
                 default:
                   amount = 300; // Default to 2 cedis package if user is messing up with me
-              };
+              }
 
               // See https://github.com/delian/node-unifiapi#unifiapicreate_vouchercount-minutes-quota-note-up-down-mbytes-site--promise
-              u.create_voucher(1, minutes_per_month, use_once, 'Generated via Mobile Money from ' + from_number, undefined, undefined, internet_megabytes)
+              u.create_voucher(1, minutes_per_month, use_once, `By ${from_number} with ID ${SLUG}`, undefined, undefined, internet_megabytes)
                 .then((created) => {
 
                   // query the voucher.

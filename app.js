@@ -26,9 +26,10 @@ if (app.get('env') === 'test') {
   });
 }
 
-app.use(cors({
-  origin: ['http://locahost:4200', 'https://buy.enjoywifi.today']
-}));
+app.use(cors());
+// app.use(cors({
+//   origin: ['http://locahost:4200', 'https://buy.enjoywifi.today']
+// }));
 
 app.use(helmet());
 // app.options(['api.enjoywifi.today', 'localhost'], cors());
