@@ -174,7 +174,7 @@ router.post('/buy', function (req, res) {
 
         rp(options)
           .then(function (api_response_data) {
-            // console.log(api_response_data);
+            console.log(api_response_data);
 
             options.response = api_response_data;
             const SLUG = makeid();
